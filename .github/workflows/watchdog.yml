@@ -1,0 +1,24 @@
+name: Watchdog - email if no video was posted
+
+on:
+  schedule:
+    - cron: '45 16 * * *'
+    - cron: '45 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check that a video was posted
+        env:
+          SMTP_USER: ${{ vars.SMTP_USER }}
+          ALERT_EMAIL: ${{ vars.ALERT_EMAIL }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          RUN_UNTIL: ${{ vars.RUN_UNTIL }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          if [ -n "$RUN_UNTIL" ] && [ "$(date -u +%F)" \> "$RUN_UNTIL" ]; then exit 0; fi
+          python notify.py --watchdog

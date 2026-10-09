@@ -1,0 +1,82 @@
+name: Screen demo - create + post
+
+on:
+  schedule:
+    # 2 videos/day (UTC) = 11am and 7pm Eastern (EDT) - between the 3D channel's 1pm / 9pm slots
+    - cron: '7 15 * * *'
+    - cron: '7 23 * * *'
+  workflow_dispatch:
+    inputs:
+      post:
+        description: 'Upload after rendering'
+        type: boolean
+        default: true
+
+concurrency:
+  group: screen-demo-bot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  create-and-post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libegl1 libgl1
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+      - name: Create video and post
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          YT_TOKEN_JSON: ${{ secrets.YT_TOKEN_JSON }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTO_POST_YOUTUBE: ${{ vars.AUTO_POST_YOUTUBE }}
+          AUTO_POST_INSTAGRAM: ${{ vars.AUTO_POST_INSTAGRAM }}
+          CHANNEL_HANDLE: ${{ vars.CHANNEL_HANDLE }}
+          RUN_UNTIL: ${{ vars.RUN_UNTIL }}
+          YT_PRIVACY: ${{ vars.YT_PRIVACY }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          set -o pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.post }}" != "true" ]; then
+            python -u main.py 2>&1 | tee run.log
+          else
+            python -u main.py --post 2>&1 | tee run.log
+          fi
+      - name: Email me if the video was not posted
+        if: failure() || cancelled()
+        env:
+          SMTP_USER: ${{ vars.SMTP_USER }}
+          ALERT_EMAIL: ${{ vars.ALERT_EMAIL }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: python notify.py --failed run.log
+      - name: Save progress
+        if: always()
+        run: |
+          git config user.name "screen-demo-bot"
+          git config user.email "screen-demo-bot@users.noreply.github.com"
+          git add state.json || true
+          git commit -m "bot: posted video [skip ci]" || exit 0
+          for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done
+      - name: Keep a copy of the video (3 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-${{ github.run_number }}
+          path: output/
+          retention-days: 3

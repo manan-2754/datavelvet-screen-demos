@@ -43,6 +43,79 @@ def adjust(img, p):
     return np.clip(out, 0, 1)
 
 
+def _rgb_to_hsv(img):
+    r, g, b = img[..., 0], img[..., 1], img[..., 2]
+    mx, mn = img.max(-1), img.min(-1)
+    d = mx - mn + 1e-6
+    h = np.where(mx == r, (g - b) / d % 6, np.where(mx == g, (b - r) / d + 2, (r - g) / d + 4)) / 6
+    s = np.where(mx > 1e-6, (mx - mn) / (mx + 1e-6), 0)
+    return h, s, mx
+
+
+def _hsv_to_rgb(h, s, v):
+    i = np.floor(h * 6) % 6
+    f = h * 6 - np.floor(h * 6)
+    p, q, t = v * (1 - s), v * (1 - f * s), v * (1 - (1 - f) * s)
+    out = np.zeros(h.shape + (3,), np.float32)
+    for k, (a, b, c) in enumerate(((v, t, p), (q, v, p), (p, v, t), (p, q, v), (t, p, v), (v, p, q))):
+        m = i == k
+        out[m] = np.stack([a[m], b[m], c[m]], -1)
+    return out
+
+
+def adjust_layer(img, kind, p):
+    """One adjustment layer of a given kind (matches the editor's Adjustments menu)."""
+    x = np.clip(img, 0, None)
+    if kind == "Exposure":
+        out = x * (2.0 ** p.get("exposure", 0)) + p.get("offset", 0)
+        g = max(0.01, p.get("gamma", 1.0))
+        out = np.clip(out, 0, None) ** (1 / g)
+    elif kind == "Brightness/Contrast":
+        out = x + p.get("brightness", 0) / 300.0
+        out = (out - 0.5) * (1 + p.get("contrast", 0) / 100.0) + 0.5
+    elif kind == "Vibrance":
+        L = luma(np.clip(x, 0, 1))[..., None]
+        sat = np.clip(x.max(-1, keepdims=True) - x.min(-1, keepdims=True), 0, 1)
+        vib = p.get("vibrance", 0) / 100.0 * (1 - sat)          # boosts muted colours more than vivid ones
+        out = L + (x - L) * (1 + vib + p.get("saturation", 0) / 100.0)
+    elif kind == "Hue/Saturation":
+        h, s, v = _rgb_to_hsv(np.clip(x, 0, 1))
+        h = (h + p.get("hue", 0) / 360.0) % 1.0
+        s = np.clip(s * (1 + p.get("saturation", 0) / 100.0), 0, 1)
+        out = _hsv_to_rgb(h, s, v)
+        lt = p.get("lightness", 0) / 100.0
+        out = out + (1 - out) * lt if lt > 0 else out * (1 + lt)
+    elif kind == "Black & White":
+        wr = 0.30 * (1 + (p.get("reds", 40) - 40) / 100.0)
+        wb = 0.11 * (1 + (p.get("blues", 20) - 20) / 100.0)
+        wg = 0.59
+        L = (x[..., 0] * wr + x[..., 1] * wg + x[..., 2] * wb) / max(0.2, wr + wg + wb) * 1.0
+        out = np.repeat(L[..., None], 3, -1)
+    elif kind == "Photo Filter":
+        d = p.get("warmth", 0) / 100.0 * p.get("filter_density", 25) / 25.0 * 0.35
+        tinted = x * np.array([1 + d, 1 + 0.15 * d, 1 - d], np.float32)
+        L0, L1 = luma(np.clip(x, 0, 1)), luma(np.clip(tinted, 0, 1))
+        out = tinted * (L0 / np.maximum(L1, 1e-4))[..., None]       # preserve luminosity like the real filter
+    else:
+        out = x
+    return np.clip(out, 0, 1).astype(np.float32)
+
+
+def apply_look(img, look):
+    """Simulate the 'problem' photo a tutorial starts from (too dark, flat, washed out, cold...)."""
+    out = img
+    if look.get("exposure"):
+        out = out * (2.0 ** look["exposure"])        # keep >1.0 headroom so darkening recovers detail
+    if look.get("contrast"):
+        out = (out - 0.5) * (1 + look["contrast"]) + 0.5
+    if look.get("saturation"):
+        L = luma(np.clip(out, 0, 1))[..., None]
+        out = L + (out - L) * (1 + look["saturation"])
+    if look.get("warmth"):
+        out = out * np.array([1 + 0.12 * look["warmth"], 1.0, 1 - 0.12 * look["warmth"]], np.float32)
+    return np.clip(out, 0, None).astype(np.float32)
+
+
 def stamp_stroke(mask, pts, radius, value=1.0, hardness=0.0, flow=1.0):
     """Paint soft round brush stamps along a polyline (image pixel coords) into mask (float32 HxW, 0..1)."""
     h, w = mask.shape

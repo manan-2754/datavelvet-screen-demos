@@ -6,6 +6,7 @@ while a smooth "screen-recording" camera zooms into whatever is being used.
 All UI is vector-drawn (Skia) in virtual desktop coordinates (2560x1440) and rendered through the camera,
 so zoomed-in shots stay razor sharp. Image edits are real pixel operations (photo_ops).
 """
+import json
 import math
 import subprocess
 import time
@@ -20,6 +21,7 @@ import photo_ops as po
 BASE = Path(__file__).parent
 FONT_DIR = BASE / "assets" / "fonts"
 PHOTO_DIR = BASE / "assets" / "photos"
+POOL = json.loads((PHOTO_DIR / "pool.json").read_text(encoding="utf-8")) if (PHOTO_DIR / "pool.json").exists() else []
 
 VW, VH = 2560, 1440                 # virtual desktop
 DW, DH = 1080, 1920                 # output design space
@@ -222,9 +224,9 @@ class Layout:
         x_start = lx + lw - 30 - (len(names) - 1) * 46
         return {n: (x_start + i * 46, y) for i, n in enumerate(names)}
 
-    def slider(self, name, tab):
+    def slider(self, name, tab, kind="Exposure"):
         px, py, pw, ph = self.props
-        order = {"adjust": ["exposure", "offset", "gamma"], "mask": ["density", "feather"]}[tab]
+        order = [sp[0] for sp in (MASK_SPECS if tab == "mask" else ADJ_SPECS.get(kind, []))]
         i = order.index(name) if name in order else 0
         return (px + 28, py + 156 + i * 88, pw - 56)          # track x, y, width
 
@@ -260,12 +262,34 @@ ADJ_MENU = ["Solid Color...", "Gradient...", "Pattern...", "-", "Brightness/Cont
             "Photo Filter...", "-", "Invert", "Posterize...", "Threshold...", "Gradient Map..."]
 
 
+ADJ_SPECS = {   # name, label, min, max, default, format
+    "Exposure": [("exposure", "Exposure:", -5, 5, 0.0, "{:+.2f}"), ("offset", "Offset:", -0.5, 0.5, 0.0, "{:.4f}"),
+                 ("gamma", "Gamma Correction:", 0.01, 9.99, 1.0, "{:.2f}")],
+    "Brightness/Contrast": [("brightness", "Brightness:", -150, 150, 0, "{:+.0f}"), ("contrast", "Contrast:", -50, 100, 0, "{:+.0f}")],
+    "Vibrance": [("vibrance", "Vibrance:", -100, 100, 0, "{:+.0f}"), ("saturation", "Saturation:", -100, 100, 0, "{:+.0f}")],
+    "Hue/Saturation": [("hue", "Hue:", -180, 180, 0, "{:+.0f}"), ("saturation", "Saturation:", -100, 100, 0, "{:+.0f}"),
+                       ("lightness", "Lightness:", -100, 100, 0, "{:+.0f}")],
+    "Black & White": [("reds", "Reds:", -200, 300, 40, "{:.0f}%"), ("blues", "Blues:", -200, 300, 20, "{:.0f}%")],
+    "Photo Filter": [("warmth", "Warmth:", -100, 100, 0, "{:+.0f}"), ("filter_density", "Density:", 0, 100, 25, "{:.0f}%")],
+}
+MASK_SPECS = [("density", "Density:", 0, 100, 100, "{:.0f}%"), ("feather", "Feather:", 0, 250, 0, "{:.1f} px")]
+REGIONS = ("sky", "foreground", "subject", "background", "left", "right", "edges", "all")
+
+
+def spec_for(name, kind):
+    for sp in (ADJ_SPECS.get(kind, []) + MASK_SPECS):
+        if sp[0] == name:
+            return sp
+    return None
+
+
 class State:
     def __init__(self):
         self.layers = [{"name": "Background", "kind": "image"}]
         self.sel = 0
         self.mask_selected = False
-        self.adj = {"exposure": 0.0, "offset": 0.0, "gamma": 1.0}
+        self.adj_type = None
+        self.adj = {}
         self.mask = None
         self.feather = 0.0
         self.density = 100.0
@@ -303,6 +327,10 @@ class Demo:
     def __init__(self, script, durations, word_times):
         self.script = script
         self.base = po.load(PHOTO_DIR / script["photo"], exposure=float(script.get("photo_exposure", 0.0)))
+        if script.get("look"):
+            self.base = po.apply_look(self.base, script["look"])
+        self.meta = next((m for m in POOL if m["file"] == script["photo"]), {"sky": 0.3, "subject": [0.5, 0.55, 0.2, 0.25]})
+        self._adj_type = None
         self.H, self.W = self.base.shape[:2]
         self.L = Layout(self.W, self.H)
         self.steps, self.events, self.cam_keys, self.cur_keys, self.overlays, self.sfx = [], [], [], [], [], []
@@ -382,26 +410,51 @@ class Demo:
         px, py, pw, ph = L.photo
         return (px + pw / 2, py + ph / 2)
 
-    def slider_knob(self, name, value, tab):
-        tx, ty, tw = self.L.slider(name, tab)
-        lo, hi = {"exposure": (-5, 5), "offset": (-0.5, 0.5), "gamma": (0.01, 9.99), "feather": (0, 250),
-                  "density": (0, 100)}[name]
-        return (tx + tw * (value - lo) / (hi - lo), ty)
+    def slider_knob(self, name, value, tab, kind=None):
+        kind = kind or self._adj_type or "Exposure"
+        tx, ty, tw = self.L.slider(name, tab, kind)
+        sp = spec_for(name, kind) or (name, name, 0, 1, 0, "{}")
+        lo, hi = sp[2], sp[3]
+        return (tx + tw * clamp((value - lo) / (hi - lo)), ty)
 
     def region_path(self, region):
         """A natural zig-zag brush path over an image region, in image pixel coords."""
         W, H = self.W, self.H
-        if region == "sky":
+        def zig(y0, y1, x0=0.03, x1=0.97, rows=4):
             pts = []
-            for k, ry in enumerate([0.05, 0.14, 0.23, 0.30]):
-                xs = (0.03, 0.97) if k % 2 == 0 else (0.97, 0.03)
+            for k in range(rows):
+                ry_ = y0 + (y1 - y0) * (k + 0.5) / rows
+                xs = (x0, x1) if k % 2 == 0 else (x1, x0)
                 for j in range(9):
                     u = j / 8
-                    pts.append(((xs[0] + (xs[1] - xs[0]) * u) * W, (ry + 0.015 * math.sin(u * 9 + k)) * H))
+                    pts.append(((xs[0] + (xs[1] - xs[0]) * u) * W, (ry_ + 0.012 * math.sin(u * 9 + k)) * H))
             return pts
+        sky = max(0.12, float(self.meta.get("sky") or 0.3))
+        cx, cy, rx, ry = self.meta.get("subject") or [0.5, 0.55, 0.2, 0.25]
+        if region == "sky":
+            return zig(0.02, sky, rows=max(2, int(sky * 12)))
+        if region == "foreground":
+            return zig(min(0.9, sky + 0.08), 0.97, rows=4)
         if region == "subject":
-            return [(W * (0.5 + 0.18 * math.cos(a)), H * (0.55 + 0.2 * math.sin(a))) for a in np.linspace(0, 6.3, 40)]
-        return [(W * 0.1, H * 0.5), (W * 0.9, H * 0.5)]
+            pts = []
+            for k, f in enumerate((0.85, 0.6, 0.35)):
+                for a in np.linspace(0, 6.28, 22):
+                    pts.append((W * (cx + rx * f * math.cos(a + k)), H * (cy + ry * f * math.sin(a + k))))
+            return pts
+        if region == "background":
+            pts = zig(0.03, 0.97, rows=6)
+            out = [q for q in pts if ((q[0] / W - cx) / (rx * 1.3)) ** 2 + ((q[1] / H - cy) / (ry * 1.3)) ** 2 > 1]
+            return out if len(out) > 4 else pts
+        if region == "left":
+            return zig(0.04, 0.96, 0.02, 0.48, rows=5)
+        if region == "right":
+            return zig(0.04, 0.96, 0.52, 0.98, rows=5)
+        if region == "edges":
+            pts = []
+            for m in (0.03, 0.09):
+                pts += [(W * m, H * m), (W * (1 - m), H * m), (W * (1 - m), H * (1 - m)), (W * m, H * (1 - m)), (W * m, H * m)]
+            return pts
+        return zig(0.03, 0.97, rows=6)
 
     def img_to_virtual(self, x, y):
         px, py, pw, ph = self.L.photo
@@ -472,10 +525,13 @@ class Demo:
             self._sfx(tp + 0.12, "click")
             self.overlays.append({"kind": "ripple", "t0": tp + 0.12, "pos": item_pos})
             name = item.replace("...", "")
+            self._adj_type = name if name in ADJ_SPECS else "Exposure"
             H, W = self.H, self.W
 
-            def add_layer(st, name=name):
+            def add_layer(st, name=self._adj_type):
                 st.popup = None
+                st.adj_type = name
+                st.adj = {sp[0]: sp[4] for sp in ADJ_SPECS[name]}
                 st.layers.append({"name": f"{name} 1", "kind": "adjust"})
                 st.sel, st.mask_selected = 1, False
                 st.mask = np.ones((H, W), np.float32)
@@ -486,10 +542,15 @@ class Demo:
         elif do == "slider":
             name, to = a["target"], float(a["to"])
             tab = "mask" if name in ("feather", "density") else "adjust"
+            kind = self._adj_type or "Exposure"
+            sp = spec_for(name, kind)
+            if sp is None:
+                return
+            to = max(sp[2], min(sp[3], to))
             self._cam(t, a.get("focus", "work"))
-            v0 = self._slider_vals.get(name, {"feather": 0.0, "density": 100.0, "gamma": 1.0}.get(name, 0.0))
-            self._slider_vals[name] = to
-            knob0, knob1 = self.slider_knob(name, v0, tab), self.slider_knob(name, to, tab)
+            v0 = self._slider_vals.get((kind, name), sp[4])
+            self._slider_vals[(kind, name)] = to
+            knob0, knob1 = self.slider_knob(name, v0, tab, kind), self.slider_knob(name, to, tab, kind)
             tc = self._move(t, 0.5, knob0)
             self._sfx(tc, "click", 0.7)
             drag = float(a.get("dur", 1.3))
@@ -733,9 +794,9 @@ class ScreenRenderer:
             arr = po.mask_rgba8(po.feather(st.mask, st.feather))
         else:
             if len(st.layers) > 1:
-                adj_key = round(st.adj["exposure"], 3)
+                adj_key = (st.adj_type, tuple(sorted((k_, round(v, 3)) for k_, v in st.adj.items())))
                 if self.adj_cache[0] != adj_key:
-                    self.adj_cache = (adj_key, po.adjust(self.d.base, {"exposure": st.adj["exposure"]}))
+                    self.adj_cache = (adj_key, po.adjust_layer(self.d.base, st.adj_type, st.adj))
                 m = po.feather(st.mask, st.feather) * (st.density / 100) if st.mask is not None else None
                 out = po.composite(self.d.base, self.adj_cache[1], m)
             else:
@@ -964,14 +1025,14 @@ class ScreenRenderer:
             c.drawPath(path(pts, True), skia.Paint(AntiAlias=True, Color=col(cc, 0.42), BlendMode=skia.BlendMode.kPlus))
 
     def draw_slider(self, c, name, label, value, fmt, tab, st):
-        tx, ty, tw = self.d.L.slider(name, tab)
+        tx, ty, tw = self.d.L.slider(name, tab, st.adj_type or "Exposure")
         self.T(c, label, tx, ty - 22, 13, C_TEXT)
         rr(c, tx + tw - 78, ty - 40, 78, 26, 4, (30, 30, 33))
         self.T(c, fmt.format(value), tx + tw - 10, ty - 22, 13, C_TEXT, SANS_REG, "right")
         rr(c, tx, ty - 2, tw, 4, 2, (78, 78, 86))
-        kx, ky = self.d.slider_knob(name, value, tab)
-        zero = {"exposure": 0.5, "offset": 0.5, "gamma": 0.1, "feather": 0.0, "density": 0.0}[name]
-        zx = tx + tw * zero
+        kx, ky = self.d.slider_knob(name, value, tab, st.adj_type)
+        sp = spec_for(name, st.adj_type) or (name, "", 0, 1, 0, "")
+        zx = tx + tw * clamp((max(sp[2], min(sp[3], 0)) - sp[2]) / (sp[3] - sp[2]))
         rr(c, min(zx, kx), ty - 2, abs(kx - zx), 4, 2, C_ACCENT2 if st.pressed == name else (150, 150, 160))
         c.drawPath(path([(kx, ty - 9), (kx + 8, ty + 6), (kx - 8, ty + 6)], True),
                    fillp((255, 255, 255) if st.pressed == name else (225, 225, 230)))
@@ -998,12 +1059,11 @@ class ScreenRenderer:
             else:
                 rr_stroke(c, cx_ - 11, ay - 9, 22, 18, 2, g, 1, 1.5)
                 c.drawCircle(cx_, ay, 5, fillp(g))
-        self.T(c, "Exposure" if st.props_tab == "adjust" else "Layer Mask", x + 150, ay + 5, 14, C_TEXT, SANS)
+        self.T(c, (st.adj_type or "Adjustment") if st.props_tab == "adjust" else "Layer Mask", x + 150, ay + 5, 14, C_TEXT, SANS)
         line(c, x + 14, y + 100, x + w - 14, y + 100, (60, 60, 66), 1, 1)
         if st.props_tab == "adjust":
-            self.draw_slider(c, "exposure", "Exposure:", st.adj["exposure"], "{:+.2f}", "adjust", st)
-            self.draw_slider(c, "offset", "Offset:", st.adj["offset"], "{:.4f}", "adjust", st)
-            self.draw_slider(c, "gamma", "Gamma Correction:", st.adj["gamma"], "{:.2f}", "adjust", st)
+            for sp in ADJ_SPECS.get(st.adj_type, []):
+                self.draw_slider(c, sp[0], sp[1], st.adj.get(sp[0], sp[4]), sp[5], "adjust", st)
         else:
             self.draw_slider(c, "density", "Density:", st.density, "{:.0f}%", "mask", st)
             self.draw_slider(c, "feather", "Feather:", st.feather, "{:.1f} px", "mask", st)

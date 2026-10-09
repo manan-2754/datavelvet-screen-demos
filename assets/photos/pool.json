@@ -1,0 +1,244 @@
+[
+ {
+  "file": "p1016.jpg",
+  "desc": "red rock canyon at golden hour under dramatic clouds",
+  "sky": 0.3,
+  "subject": [
+   0.45,
+   0.45,
+   0.25,
+   0.2
+  ]
+ },
+ {
+  "file": "p1015.jpg",
+  "desc": "fjord with deep blue water and cliffs under a cloudy sky",
+  "sky": 0.28,
+  "subject": [
+   0.5,
+   0.55,
+   0.15,
+   0.3
+  ]
+ },
+ {
+  "file": "p1018.jpg",
+  "desc": "green hills and a winding road under a misty sky",
+  "sky": 0.45,
+  "subject": [
+   0.75,
+   0.55,
+   0.2,
+   0.3
+  ]
+ },
+ {
+  "file": "p1036.jpg",
+  "desc": "snowy mountain camp with a yellow tent",
+  "sky": 0.35,
+  "subject": [
+   0.65,
+   0.78,
+   0.15,
+   0.12
+  ]
+ },
+ {
+  "file": "p1043.jpg",
+  "desc": "Yosemite valley cliff with pine trees and a river",
+  "sky": 0.28,
+  "subject": [
+   0.45,
+   0.4,
+   0.15,
+   0.2
+  ]
+ },
+ {
+  "file": "p29.jpg",
+  "desc": "snowy Himalayan peaks under a blue sky",
+  "sky": 0.25,
+  "subject": [
+   0.6,
+   0.3,
+   0.2,
+   0.12
+  ]
+ },
+ {
+  "file": "p13.jpg",
+  "desc": "pebble beach and calm sea under a pale sky",
+  "sky": 0.42,
+  "subject": [
+   0.4,
+   0.75,
+   0.3,
+   0.15
+  ]
+ },
+ {
+  "file": "p16.jpg",
+  "desc": "rocky coastline and blue ocean",
+  "sky": 0.4,
+  "subject": [
+   0.35,
+   0.85,
+   0.3,
+   0.12
+  ]
+ },
+ {
+  "file": "p17.jpg",
+  "desc": "gravel path through a green meadow with trees",
+  "sky": 0.22,
+  "subject": [
+   0.55,
+   0.75,
+   0.12,
+   0.2
+  ]
+ },
+ {
+  "file": "p46.jpg",
+  "desc": "rolling desert hills under a clear sky",
+  "sky": 0.4,
+  "subject": [
+   0.5,
+   0.7,
+   0.35,
+   0.2
+  ]
+ },
+ {
+  "file": "p49.jpg",
+  "desc": "white Santorini village by the sea",
+  "sky": 0.4,
+  "subject": [
+   0.65,
+   0.7,
+   0.3,
+   0.2
+  ]
+ },
+ {
+  "file": "p54.jpg",
+  "desc": "small hill under a big blue sky with white clouds",
+  "sky": 0.7,
+  "subject": [
+   0.5,
+   0.88,
+   0.25,
+   0.1
+  ]
+ },
+ {
+  "file": "p110.jpg",
+  "desc": "sunset over a field with silhouetted trees",
+  "sky": 0.55,
+  "subject": [
+   0.55,
+   0.55,
+   0.3,
+   0.08
+  ]
+ },
+ {
+  "file": "p142.jpg",
+  "desc": "French chateau with a long path under a cloudy sky",
+  "sky": 0.45,
+  "subject": [
+   0.45,
+   0.52,
+   0.3,
+   0.08
+  ]
+ },
+ {
+  "file": "p164.jpg",
+  "desc": "colourful canal houses with boats",
+  "sky": 0.2,
+  "subject": [
+   0.5,
+   0.75,
+   0.3,
+   0.2
+  ]
+ },
+ {
+  "file": "p64.jpg",
+  "desc": "portrait of a woman in sunglasses holding flowers in a field",
+  "sky": 0.3,
+  "subject": [
+   0.72,
+   0.45,
+   0.15,
+   0.35
+  ]
+ },
+ {
+  "file": "p65.jpg",
+  "desc": "girl in a golden field at sunset, backlit",
+  "sky": 0.25,
+  "subject": [
+   0.3,
+   0.55,
+   0.25,
+   0.4
+  ]
+ },
+ {
+  "file": "p152.jpg",
+  "desc": "close-up of purple petunia flowers",
+  "sky": 0.0,
+  "subject": [
+   0.3,
+   0.6,
+   0.25,
+   0.35
+  ]
+ },
+ {
+  "file": "p177.jpg",
+  "desc": "hiker with a backpack overlooking a hazy valley",
+  "sky": 0.25,
+  "subject": [
+   0.48,
+   0.6,
+   0.08,
+   0.25
+  ]
+ },
+ {
+  "file": "p111.jpg",
+  "desc": "vintage car parked on a street",
+  "sky": 0.0,
+  "subject": [
+   0.6,
+   0.6,
+   0.35,
+   0.3
+  ]
+ },
+ {
+  "file": "p76.jpg",
+  "desc": "old wooden barn with a green bicycle",
+  "sky": 0.0,
+  "subject": [
+   0.6,
+   0.8,
+   0.15,
+   0.12
+  ]
+ },
+ {
+  "file": "p96.jpg",
+  "desc": "game controller on a table with soft lights",
+  "sky": 0.0,
+  "subject": [
+   0.48,
+   0.6,
+   0.2,
+   0.1
+  ]
+ }
+]

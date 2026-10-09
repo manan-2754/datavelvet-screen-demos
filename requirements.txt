@@ -1,0 +1,12 @@
+edge-tts==7.2.8
+gTTS==2.5.1
+skia-python==144.0.post2
+numpy>=1.26,<3
+scipy>=1.11
+Pillow>=10
+imageio-ffmpeg>=0.5
+requests>=2.32
+python-dotenv==1.0.1
+google-api-python-client==2.143.0
+google-auth-oauthlib==1.2.1
+google-auth-httplib2==0.2.0
