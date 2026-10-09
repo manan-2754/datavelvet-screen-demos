@@ -1,0 +1,86 @@
+{
+  "topic": "Fix a blown-out sky with a layer mask",
+  "app": "photo",
+  "photo": "p1016.jpg",
+  "photo_exposure": 1.15,
+  "file_name": "canyon_sunset.jpg",
+  "hook": "Fix a **blown-out** sky in 30 seconds",
+  "steps": [
+    {
+      "title": "The sky is blown out",
+      "narration": "Your sky is completely blown out, but the land looks perfect. Here's the thirty second fix the pros actually use.",
+      "actions": [
+        {"cue": "Your sky", "do": "compare", "dur": 2.6}
+      ]
+    },
+    {
+      "title": "Don't darken the whole photo",
+      "narration": "If you just pull the exposure down on everything, the sky gets better, but the rocks turn muddy. So we'll darken only the sky.",
+      "actions": [
+        {"cue": "If you just", "do": "focus", "target": "sky"},
+        {"cue": "the rocks", "do": "focus", "target": "canvas"},
+        {"cue": "darken only", "do": "note", "text": "Goal: darken ONLY the sky", "hold": 2.6}
+      ]
+    },
+    {
+      "title": "Add an Exposure adjustment layer",
+      "narration": "At the bottom of the layers panel, click the adjustment icon, and choose Exposure.",
+      "actions": [
+        {"cue": "click the adjustment", "do": "pick", "target": "layers.adjust", "item": "Exposure..."}
+      ]
+    },
+    {
+      "title": "Drag exposure down",
+      "narration": "Drag the exposure slider down to about minus one point two. Yes, the whole image gets darker for now. That's fine.",
+      "actions": [
+        {"cue": "Drag the exposure", "do": "slider", "target": "exposure", "to": -1.2, "dur": 1.6}
+      ]
+    },
+    {
+      "title": "Invert the mask",
+      "narration": "Every adjustment layer comes with a white mask, so the effect shows everywhere. Click the mask, then press Control I to invert it to black. The effect disappears.",
+      "actions": [
+        {"cue": "Click the mask", "do": "click", "target": "layer.mask"},
+        {"cue": "Control I", "do": "key", "keys": "Ctrl + I"}
+      ]
+    },
+    {
+      "title": "Paint the sky back in",
+      "narration": "Now press B for the brush, press D so white is your foreground color, and paint over the sky. Everywhere you paint white, the darker sky comes back.",
+      "actions": [
+        {"cue": "press B", "do": "key", "keys": "B"},
+        {"cue": "press D", "do": "key", "keys": "D"},
+        {"cue": "paint over", "do": "paint", "region": "sky", "value": 1.0, "size": 340, "dur": 3.4}
+      ]
+    },
+    {
+      "title": "Soften the edge",
+      "narration": "The edge along the cliffs is a little harsh, so open the mask properties, and drag feather to about forty pixels.",
+      "actions": [
+        {"cue": "open the mask", "do": "click", "target": "props.tab.mask"},
+        {"cue": "drag feather", "do": "slider", "target": "feather", "to": 40, "dur": 1.4}
+      ]
+    },
+    {
+      "title": "Check your mask",
+      "narration": "Alt click the mask to see exactly what you painted. White is the sky you changed, black is protected. Alt click again to go back.",
+      "actions": [
+        {"cue": "Alt click the mask", "do": "click", "target": "layer.mask", "mod": "Alt"},
+        {"cue": "Alt click again", "do": "click", "target": "layer.mask", "mod": "Alt"}
+      ]
+    },
+    {
+      "title": "Before and after",
+      "narration": "And here's the before, and the after. Same photo, but now you can actually see the clouds. Follow for more editing tricks.",
+      "actions": [
+        {"cue": "the before", "do": "compare", "dur": 2.6}
+      ]
+    }
+  ],
+  "youtube": {
+    "title": "Fix a blown-out sky in 30 seconds (layer mask trick) #shorts",
+    "description": "Darken only the sky with an Exposure adjustment layer, an inverted mask and a soft white brush - then feather the edge. Works in Photoshop and most layer-based editors.\n\n#photoediting #photoshoptutorial #layermask #editingtips #photography #shorts",
+    "tags": ["photo editing", "layer mask", "photoshop tutorial", "blown out sky", "exposure", "editing tips"]
+  },
+  "instagram_caption": "Blown-out sky? Fix it in 30 seconds ☁️\n\nExposure adjustment layer → Ctrl+I to invert the mask → paint white over the sky → feather the edge.\n\nSave this for your next edit.\n\n#photoediting #photoshop #editingtips #layermask #photography #lightroom #creator"
+}

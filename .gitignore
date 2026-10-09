@@ -1,0 +1,9 @@
+.env
+token.json
+client_secret*.json
+output/
+out/
+__pycache__/
+*.pkl
+*.wav
+sheet_photos.jpg
