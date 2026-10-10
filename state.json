@@ -1,11 +1,18 @@
 {
-  "used_topics": [],
+  "used_topics": [
+    "Subtle exposure lift for prints"
+  ],
   "posts": [
     {
       "time": "2026-10-09T03:20:00+00:00",
       "topic": "Fix a blown-out sky with a layer mask",
       "youtube_id": "Nvw2xG4fc7Q",
       "instagram_id": "18077170802433924"
+    },
+    {
+      "time": "2026-10-10T19:20:23+00:00",
+      "topic": "Subtle exposure lift for prints",
+      "youtube_id": "JPiRqlxWdtE"
     }
   ]
 }
